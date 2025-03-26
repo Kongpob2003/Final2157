@@ -9,5 +9,11 @@ func StartServer() {
 			"message": "Api is now working",
 		})
 	})
+	// Include Demo Controller
+	DemoController(router)
 	router.Run()
+}
+
+func DemoController(router *gin.Engine) {
+	panic("unimplemented")
 }

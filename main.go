@@ -1,37 +1,120 @@
 package main
 
 import (
-	"fmt"
+	"go_final/model"
+	"net/http"
+	"time"
 
-	"github.com/spf13/viper"
+	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
-// func main() {
-// 	dsn := "cp_65011212157:65011212157@csmsu@tcp(202.28.34.197:3306)/cp_65011212157"
-// 	dialactor := mysql.Open(dsn)
-// 	_, err := gorm.Open(dialactor)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	fmt.Println("Connection successful")
-// }
+func connectDatabase() (*gorm.DB, error) {
+    dsn := "cp_65011212157:65011212157@csmsu@tcp(202.28.34.197:3306)/cp_65011212157?parseTime=true"
+    db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+    if err != nil {
+        return nil, err
+    }
+    return db, nil
+}
 
 func main() {
-	viper.SetConfigName("config")
-	viper.AddConfigPath(".")
-	err := viper.ReadInConfig()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(viper.Get("mysql.dsn"))
-	dsn := viper.GetString("mysql.dsn")
+	r := gin.Default()
 
-	dialactor := mysql.Open(dsn)
-	_, err = gorm.Open(dialactor)
+	// Connect to database
+	db, err := connectDatabase()
 	if err != nil {
-		panic(err)
+		panic("Failed to connect to database!")
 	}
-	fmt.Println("Connection successful")
+
+	// API Route for Login
+	// API Route for Login
+// API Route for Login
+
+
+
+
+
+
+
+	// API Route for Login
+r.POST("/login", func(c *gin.Context) {
+	var input struct {
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+
+	// Binding input JSON
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	var customer model.Customer
+	// Find customer by email
+	if err := db.Where("email = ?", input.Email).First(&customer).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+		return
+	}
+
+	// Check if password is already hashed or not
+	var passwordMatch bool
+	if len(customer.Password) < 60 { // This assumes that bcrypt hashes are always 60 characters long
+		// If password is not hashed (i.e. it's in plain text), compare directly
+		if customer.Password == input.Password {
+			passwordMatch = true
+		}
+	} else {
+		// If password is hashed, compare with bcrypt
+		err := bcrypt.CompareHashAndPassword([]byte(customer.Password), []byte(input.Password))
+		if err == nil {
+			passwordMatch = true
+		}
+	}
+
+	// If password matches, proceed
+	if passwordMatch {
+		// If password was plain, hash it and save to database
+		if len(customer.Password) < 60 {
+			hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+				return
+			}
+			customer.Password = string(hashedPassword)
+			// Update the customer's password with the hashed password
+			if err := db.Save(&customer).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
+				return
+			}
+		}
+
+		// Return customer data in response
+		c.JSON(http.StatusOK, gin.H{
+			"CustomerID":  customer.CustomerID,
+			"FirstName":   customer.FirstName,
+			"LastName":    customer.LastName,
+			"Email":       customer.Email,
+			"PhoneNumber": customer.PhoneNumber,
+			"Address":     customer.Address,
+			"CreatedAt":   customer.CreatedAt.Format(time.RFC3339),
+			"UpdatedAt":   customer.UpdatedAt.Format(time.RFC3339),
+		})
+		
+	} else {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
+	}
+})
+
+
+	// Start server
+	r.Run(":8080")
 }
+
+
+
+
+	
+
