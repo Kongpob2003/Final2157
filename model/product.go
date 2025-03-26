@@ -15,7 +15,10 @@ type Product struct {
 	UpdatedAt     time.Time `gorm:"column:updated_at;default:CURRENT_TIMESTAMP"`
 }
 
-func (m *Product) TableName() string {
-	return "product"
+// SearchProductInput defines the input structure for searching products
+type SearchProductInput struct {
+	Description string  `form:"description"` // Optional: search by product description
+	MinPrice    float64 `form:"min_price"`   // Optional: minimum price
+	MaxPrice    float64 `form:"max_price"`   // Optional: maximum price
 }
 
