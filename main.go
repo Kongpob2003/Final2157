@@ -30,16 +30,6 @@ func main() {
 	}
 
 	// API Route for Login
-	// API Route for Login
-// API Route for Login
-
-
-
-
-
-
-
-	// API Route for Login
 r.POST("/login", func(c *gin.Context) {
 	var input struct {
 		Email    string `json:"email" binding:"required"`
@@ -108,6 +98,62 @@ r.POST("/login", func(c *gin.Context) {
 	}
 })
 
+// API Route for Change Password
+r.POST("/changepassword", func(c *gin.Context) {
+	var input struct {
+		Email       string `json:"email" binding:"required"`
+		OldPassword string `json:"old_password" binding:"required"`
+		NewPassword string `json:"new_password" binding:"required"`
+	}
+
+	// Bind JSON input
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		return
+	}
+
+	// Find customer by email
+	var customer model.Customer
+	if err := db.Where("email = ?", input.Email).First(&customer).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email"})
+		return
+	}
+
+	// Verify old password
+	var passwordMatch bool
+	if len(customer.Password) < 60 { // Plain text password
+		if customer.Password == input.OldPassword {
+			passwordMatch = true
+		}
+	} else { // Hashed password
+		err := bcrypt.CompareHashAndPassword([]byte(customer.Password), []byte(input.OldPassword))
+		if err == nil {
+			passwordMatch = true
+		}
+	}
+
+	if !passwordMatch {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Incorrect old password"})
+		return
+	}
+
+	// Hash the new password
+	hashedNewPassword, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash new password"})
+		return
+	}
+
+	// Update the password in the database
+	customer.Password = string(hashedNewPassword)
+	if err := db.Save(&customer).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
+		return
+	}
+
+	// Success response
+	c.JSON(http.StatusOK, gin.H{"message": "Password changed successfully"})
+})
 
 	// Start server
 	r.Run(":8080")
